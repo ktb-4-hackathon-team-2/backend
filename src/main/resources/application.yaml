@@ -1,3 +1,60 @@
 spring:
   application:
     name: ktb-hktn-team2
+
+  # 기본은 H2 인메모리 → 별도 설치 없이 ./gradlew bootRun 만으로 뜬다.
+  # MySQL 로 붙일 때는 ./gradlew bootRun --args='--spring.profiles.active=mysql'
+  # 재시작해도 데이터를 남기고 싶으면 url 을 jdbc:h2:file:./data/ktb;MODE=MySQL 로 바꾼다.
+  datasource:
+    url: jdbc:h2:mem:ktb;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  # http://localhost:8080/h2-console (JDBC URL 에 위 url 을 그대로 입력)
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+app:
+  # 제품 키: 값이 일치해야 회원가입/로그인 화면에 진입할 수 있다.
+  product-key:
+    value: ${PRODUCT_KEY:9999}
+  jwt:
+    # HS256 이므로 32 bytes(=32자) 이상이어야 한다. 운영에서는 반드시 JWT_SECRET 으로 덮어쓸 것.
+    secret: ${JWT_SECRET:ktb-hktn-team2-local-dev-secret-key-please-change-me}
+    access-token-expiration: ${JWT_EXPIRATION:1h}
+
+logging:
+  level:
+    org.hibernate.SQL: debug
+
+---
+# MySQL 사용: ./gradlew bootRun --args='--spring.profiles.active=mysql'
+spring:
+  config:
+    activate:
+      on-profile: mysql
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/ktb_hktn_team2?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+  h2:
+    console:
+      enabled: false

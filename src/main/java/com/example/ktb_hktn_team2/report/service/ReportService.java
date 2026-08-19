@@ -189,8 +189,92 @@ public class ReportService {
     @Transactional
     public DailyReportResponse generateAiReport(Member member, LocalDate date) {
         LocalDate targetDate = date != null ? date : LocalDate.now();
-        MonitoringEndRequest req = new MonitoringEndRequest();
-        return endMonitoringSession(member, req);
+        LocalDateTime startOfDay = targetDate.atStartOfDay();
+        LocalDateTime endOfDay = targetDate.atTime(LocalTime.MAX);
+
+        List<Object[]> summaryList = minuteLogRepository.findSummaryBetween(member, startOfDay, endOfDay);
+        long totalMonitoredSec = 0;
+        long totalGoodSec = 0;
+        int totalAlerts = 0;
+
+        if (!summaryList.isEmpty() && summaryList.get(0) != null) {
+            Object[] row = summaryList.get(0);
+            totalMonitoredSec = ((Number) row[0]).longValue();
+            totalGoodSec = ((Number) row[1]).longValue();
+            totalAlerts = ((Number) row[2]).intValue();
+        }
+
+        double totalMonitoredMin = Math.round((totalMonitoredSec / 60.0) * 10.0) / 10.0;
+        double avgGoodRatio = totalMonitoredSec > 0
+                ? Math.round(((double) totalGoodSec / totalMonitoredSec) * 100.0) / 100.0
+                : 0.0;
+        int rate = (int) Math.round(avgGoodRatio * 100);
+        int avgHoldMin = (int) Math.round(avgGoodRatio * 60);
+
+        List<HourlyStatDto> hourlyStats = minuteLogRepository.findHourlyStatsBetween(member, startOfDay, endOfDay);
+        List<IssueStatDto> issueStats = calculateIssueStats(member, startOfDay, endOfDay);
+
+        System.out.println("🔥 [Spring Boot] DB 집계 결과 -> Member ID: " + member.getId()
+                + ", TargetDate: " + targetDate
+                + ", Start: " + startOfDay + ", End: " + endOfDay
+                + ", TotalSec: " + totalMonitoredSec
+                + ", HourlyStats Count: " + hourlyStats.size());
+        if (!hourlyStats.isEmpty()) {
+            for (HourlyStatDto h : hourlyStats) {
+                System.out.println("   * [Hour " + h.getHour() + "] Rate: " + h.getRate() + "%, Min: " + h.getMonitoredMin() + ", Alerts: " + h.getAlerts());
+            }
+        }
+
+        // AI 서버 분석 호출
+        AiClient.AiAnalyzeResult aiResult = aiClient.analyzeDaily(
+                String.valueOf(member.getId()),
+                targetDate.toString(),
+                hourlyStats,
+                0,
+                0
+        );
+
+        // DailyReport 테이블 저장(UPSERT)
+        String highlightsJson = toJson(aiResult.highlights());
+        String adviceJson = toJson(aiResult.advice());
+
+        DailyReport dailyReport = dailyReportRepository.findByMemberAndReportDate(member, targetDate)
+                .orElseGet(() -> DailyReport.builder()
+                        .member(member)
+                        .reportDate(targetDate)
+                        .build());
+
+        dailyReport.updateAnalysis(
+                totalMonitoredMin,
+                avgGoodRatio,
+                totalAlerts,
+                0,
+                0,
+                aiResult.grade(),
+                aiResult.summary(),
+                highlightsJson,
+                adviceJson,
+                aiResult.source()
+        );
+        dailyReportRepository.save(dailyReport);
+
+        return DailyReportResponse.builder()
+                .date(targetDate)
+                .totalMonitoredMin(totalMonitoredMin)
+                .avgGoodRatio(avgGoodRatio)
+                .rate(rate)
+                .avgHoldMin(avgHoldMin)
+                .totalAlerts(totalAlerts)
+                .stretchSuggested(0)
+                .stretchDone(0)
+                .grade(aiResult.grade())
+                .llmSummary(aiResult.summary())
+                .llmHighlights(aiResult.highlights())
+                .llmAdvice(aiResult.advice())
+                .hasData(totalMonitoredSec > 0)
+                .hourlyStats(hourlyStats)
+                .issueStats(issueStats)
+                .build();
     }
 
     /**

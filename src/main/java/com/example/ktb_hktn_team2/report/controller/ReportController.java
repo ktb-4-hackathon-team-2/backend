@@ -102,6 +102,7 @@ public class ReportController {
             @LoginMember Member member,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
+        System.out.println("\n🔥 [Spring Boot] POST /api/reports/daily/analyze 호출됨! Member ID: " + (member != null ? member.getId() : "null") + ", Date Param: " + date);
         DailyReportResponse response = reportService.generateAiReport(member, date);
         return ResponseEntity.ok(response);
     }

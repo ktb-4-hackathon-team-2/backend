@@ -26,7 +26,8 @@ public class AiClient {
             @Value("${app.ai-server.url:http://localhost:8000}") String aiServerUrl
     ) {
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(3))
+                .version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(Duration.ofSeconds(5))
                 .build();
         this.objectMapper = new ObjectMapper();
         this.aiServerUrl = aiServerUrl;

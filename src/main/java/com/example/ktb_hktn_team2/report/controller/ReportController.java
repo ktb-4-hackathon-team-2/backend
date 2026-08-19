@@ -93,4 +93,16 @@ public class ReportController {
         List<CalendarDayResponse> calendar = reportService.getCalendarHeatmap(member, year, month);
         return ResponseEntity.ok(calendar);
     }
+
+    /**
+     * 6. AI 일일 리포트 분석 생성 / 재생성 요청
+     */
+    @PostMapping("/reports/daily/analyze")
+    public ResponseEntity<DailyReportResponse> analyzeDailyReport(
+            @LoginMember Member member,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        DailyReportResponse response = reportService.generateAiReport(member, date);
+        return ResponseEntity.ok(response);
+    }
 }

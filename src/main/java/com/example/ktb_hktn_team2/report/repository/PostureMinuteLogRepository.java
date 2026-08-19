@@ -40,4 +40,13 @@ public interface PostureMinuteLogRepository extends JpaRepository<PostureMinuteL
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end
     );
+
+    // 3. 특정 기간 동안 기록된 모든 issue_codes 문자열 조회
+    @Query("SELECT p.issueCodes FROM PostureMinuteLog p " +
+            "WHERE p.member = :member AND p.loggedAt >= :start AND p.loggedAt <= :end AND p.issueCodes IS NOT NULL AND p.issueCodes != ''")
+    List<String> findIssueCodesBetween(
+            @Param("member") Member member,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
 }

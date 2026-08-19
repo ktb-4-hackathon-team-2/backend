@@ -35,34 +35,49 @@ public class AiClient {
     public AiAnalyzeResult analyzeDaily(String userId, String date, List<HourlyStatDto> hourly, int stretchSuggested, int stretchDone) {
         try {
             Map<String, Object> body = new HashMap<>();
-            body.put("date", date);
-            body.put("user_id", userId);
-            body.put("stretch_suggested", stretchSuggested);
-            body.put("stretch_done", stretchDone);
+            body.put("date", date != null && !date.isBlank() ? date : java.time.LocalDate.now().toString());
+            body.put("user_id", userId != null ? userId : "default_user");
+            body.put("stretch_suggested", Math.max(0, stretchSuggested));
+            body.put("stretch_done", Math.max(0, stretchDone));
 
             List<Map<String, Object>> hourlyList = new ArrayList<>();
-            for (HourlyStatDto h : hourly) {
-                Map<String, Object> item = new HashMap<>();
-                item.put("hour", h.getHour());
-                item.put("good_ratio", h.getGoodRatio() != null ? h.getGoodRatio() : 0.0);
-                item.put("monitored_min", h.getMonitoredMin() != null ? h.getMonitoredMin() : 0.0);
-                item.put("alerts", h.getAlerts() != null ? h.getAlerts() : 0);
-                hourlyList.add(item);
+            if (hourly != null) {
+                for (HourlyStatDto h : hourly) {
+                    if (h == null) continue;
+                    int hour = h.getHour() != null ? Math.min(23, Math.max(0, h.getHour())) : 0;
+                    double rawRatio = h.getGoodRatio() != null ? h.getGoodRatio() : 0.0;
+                    // 만약 0~100 범위로 들어온 경우 0~1로 정규화
+                    if (rawRatio > 1.0) {
+                        rawRatio = rawRatio / 100.0;
+                    }
+                    double goodRatio = Math.min(1.0, Math.max(0.0, rawRatio));
+                    double monitoredMin = h.getMonitoredMin() != null ? Math.max(0.0, h.getMonitoredMin()) : 0.0;
+                    int alerts = h.getAlerts() != null ? Math.max(0, h.getAlerts()) : 0;
+
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("hour", hour);
+                    item.put("good_ratio", goodRatio);
+                    item.put("monitored_min", monitoredMin);
+                    item.put("alerts", alerts);
+                    hourlyList.add(item);
+                }
             }
             body.put("hourly", hourlyList);
 
             String requestJson = objectMapper.writeValueAsString(body);
+            log.info("AI 서버 분석 요청 페이로드: {}", requestJson);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(aiServerUrl + "/api/report/daily/analyze"))
                     .header("Content-Type", "application/json")
-                    .timeout(Duration.ofSeconds(10))
+                    .timeout(Duration.ofSeconds(30))
                     .POST(HttpRequest.BodyPublishers.ofString(requestJson))
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                log.info("AI 서버 분석 응답 성공: {}", response.body());
                 JsonNode root = objectMapper.readTree(response.body());
                 String summary = root.path("summary").asText("자세 모니터링이 성공적으로 완료되었습니다.");
                 String grade = root.path("grade").asText("NORMAL").toUpperCase();
@@ -83,16 +98,21 @@ public class AiClient {
                 }
 
                 return new AiAnalyzeResult(summary, grade, highlights, advice, source);
+            } else {
+                log.warn("AI 서버 응답 실패 [HTTP {}]: {}", response.statusCode(), response.body());
             }
         } catch (Exception e) {
-            log.warn("AI 서버 분석 호출 실패 (규칙 기반 폴백 적용): {}", e.getMessage());
+            log.warn("AI 서버 분석 호출 예외 (규칙 기반 폴백 적용): {}", e.getMessage());
         }
 
         return fallbackAnalyze(hourly);
     }
 
     private AiAnalyzeResult fallbackAnalyze(List<HourlyStatDto> hourly) {
-        double avg = hourly.stream().mapToDouble(h -> h.getGoodRatio() != null ? h.getGoodRatio() : 0.0).average().orElse(0.8);
+        double avg = (hourly != null && !hourly.isEmpty())
+                ? hourly.stream().mapToDouble(h -> h.getGoodRatio() != null ? h.getGoodRatio() : 0.0).average().orElse(0.8)
+                : 0.8;
+        if (avg > 1.0) avg = avg / 100.0;
         String grade = avg >= 0.85 ? "EXCELLENT" : avg >= 0.7 ? "GOOD" : avg >= 0.5 ? "NORMAL" : "BAD";
         String summary = String.format("오늘의 평균 바른 자세 유지율은 %.0f%%입니다. 꾸준히 바른 자세를 유지해 보세요.", avg * 100);
         List<String> highlights = List.of("시간대별 자세를 점검하고 스트레칭을 틈틈이 실천해 보세요.");

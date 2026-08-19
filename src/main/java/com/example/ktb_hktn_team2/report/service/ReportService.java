@@ -129,6 +129,7 @@ public class ReportService {
         int avgHoldMin = (int) Math.round(avgGoodRatio * 60);
 
         List<HourlyStatDto> hourlyStats = minuteLogRepository.findHourlyStatsBetween(member, startOfDay, endOfDay);
+        List<IssueStatDto> issueStats = calculateIssueStats(member, startOfDay, endOfDay);
 
         // 3) AI 서버 분석 호출
         AiClient.AiAnalyzeResult aiResult = aiClient.analyzeDaily(
@@ -178,7 +179,18 @@ public class ReportService {
                 .llmAdvice(aiResult.advice())
                 .hasData(true)
                 .hourlyStats(hourlyStats)
+                .issueStats(issueStats)
                 .build();
+    }
+
+    /**
+     * 2-2. 버튼 클릭 시 AI 리포트 분석 생성 / 재생성
+     */
+    @Transactional
+    public DailyReportResponse generateAiReport(Member member, LocalDate date) {
+        LocalDate targetDate = date != null ? date : LocalDate.now();
+        MonitoringEndRequest req = new MonitoringEndRequest();
+        return endMonitoringSession(member, req);
     }
 
     /**
@@ -190,6 +202,7 @@ public class ReportService {
         LocalDateTime endOfDay = targetDate.atTime(LocalTime.MAX);
 
         List<HourlyStatDto> hourlyStats = minuteLogRepository.findHourlyStatsBetween(member, startOfDay, endOfDay);
+        List<IssueStatDto> issueStats = calculateIssueStats(member, startOfDay, endOfDay);
 
         Optional<DailyReport> dailyReportOpt = dailyReportRepository.findByMemberAndReportDate(member, targetDate);
 
@@ -211,6 +224,7 @@ public class ReportService {
                     .llmAdvice(fromJsonList(r.getLlmAdvice()))
                     .hasData(hasData)
                     .hourlyStats(hourlyStats)
+                    .issueStats(issueStats)
                     .build();
         }
 
@@ -243,6 +257,7 @@ public class ReportService {
                 .llmAdvice(List.of())
                 .hasData(hasData)
                 .hourlyStats(hourlyStats)
+                .issueStats(issueStats)
                 .build();
     }
 
@@ -428,6 +443,103 @@ public class ReportService {
             return ((Number) summary.get(0)[2]).intValue();
         }
         return 0;
+    }
+
+    private List<IssueStatDto> calculateIssueStats(Member member, LocalDateTime start, LocalDateTime end) {
+        List<String> rawIssueCodesList = minuteLogRepository.findIssueCodesBetween(member, start, end);
+        if (rawIssueCodesList == null || rawIssueCodesList.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, Integer> counts = new HashMap<>();
+        int totalOccurrences = 0;
+        for (String raw : rawIssueCodesList) {
+            if (raw == null || raw.isBlank()) continue;
+            String[] split = raw.split(",");
+            for (String code : split) {
+                String trimmed = code.trim();
+                if (!trimmed.isEmpty()) {
+                    counts.put(trimmed, counts.getOrDefault(trimmed, 0) + 1);
+                    totalOccurrences++;
+                }
+            }
+        }
+
+        if (totalOccurrences == 0) {
+            return List.of();
+        }
+
+        final int total = totalOccurrences;
+        List<IssueStatDto> stats = new ArrayList<>();
+        counts.forEach((code, count) -> {
+            int ratio = (int) Math.round(((double) count / total) * 100);
+            stats.add(toIssueStatDto(code, count, ratio));
+        });
+
+        stats.sort((a, b) -> b.getCount().compareTo(a.getCount()));
+        return stats;
+    }
+
+    private IssueStatDto toIssueStatDto(String code, int count, int ratio) {
+        String label;
+        String desc;
+        String stretch;
+        String stretchId;
+
+        switch (code) {
+            case "neck_tilt":
+                label = "거북목 · 목 기울임";
+                desc = "머리가 화면 쪽으로 앞으로 쏠리거나 목이 한쪽으로 기운 상태";
+                stretch = "턱 당기기";
+                stretchId = "chin_tuck";
+                break;
+            case "shoulder_tilt":
+                label = "어깨 비대칭 · 기울어짐";
+                desc = "양쪽 어깨의 높낮이가 맞지 않고 한쪽으로 치우친 상태";
+                stretch = "어깨 으쓱하기";
+                stretchId = "shoulder_shrug";
+                break;
+            case "head_down":
+                label = "고개 숙임";
+                desc = "시선이 모니터보다 지나치게 낮아 목 뒤 근육에 부담이 가는 상태";
+                stretch = "가슴 열기 (양팔 벌리기)";
+                stretchId = "chest_opener";
+                break;
+            case "lean_in":
+                label = "화면 밀착";
+                desc = "모니터 화면에 너무 가까이 다가가 눈과 목에 무리가 가는 상태";
+                stretch = "팔 위로 뻗기";
+                stretchId = "arms_up";
+                break;
+            case "lean_out":
+                label = "뒤로 눕는 자세";
+                desc = "의자 등받이에 과도하게 기대어 척추 정렬이 무너진 상태";
+                stretch = "가슴 열기";
+                stretchId = "chest_opener";
+                break;
+            case "shift_x":
+                label = "좌우 쏠림";
+                desc = "상체가 중심선에서 좌우로 크게 벗어난 상태";
+                stretch = "팔 위로 뻗기";
+                stretchId = "arms_up";
+                break;
+            default:
+                label = code;
+                desc = "자세 불균형이 감지된 상태";
+                stretch = "목 옆 늘리기";
+                stretchId = "neck_side_left";
+                break;
+        }
+
+        return IssueStatDto.builder()
+                .code(code)
+                .label(label)
+                .count(count)
+                .ratio(ratio)
+                .description(desc)
+                .recommendedStretch(stretch)
+                .stretchId(stretchId)
+                .build();
     }
 
     private String toJson(Object obj) {

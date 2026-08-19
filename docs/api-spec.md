@@ -79,6 +79,11 @@ sequenceDiagram
 | POST | `/api/signup` | ✕ | 회원가입 |
 | POST | `/api/login` | ✕ | 로그인 (Access Token 발급) |
 | GET | `/api/me` | ✓ | 내 정보 조회 |
+| POST | `/api/monitoring/minute-logs` | ✓ | 1분 버퍼링 로그 저장 |
+| POST | `/api/monitoring/end` | ✓ | 모니터링 종료 & 레포트 생성 (AI 분석 포함) |
+| GET | `/api/reports/dashboard` | ✓ | 레포트 화면 전체 대시보드 조회 (최근 14일, 주간비교, 스탯) |
+| GET | `/api/reports/daily` | ✓ | 특정 날짜 일일 레포트 상세 조회 |
+| GET | `/api/reports/calendar` | ✓ | 달력 잔디(히트맵) 조회 |
 
 ---
 

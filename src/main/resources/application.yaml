@@ -23,7 +23,7 @@ app:
     value: ${PRODUCT_KEY:9999}
   jwt:
     secret: ${JWT_SECRET:ktb-hktn-team2-local-dev-secret-key-please-change-me}
-    access-token-expiration: ${JWT_EXPIRATION:1h}
+    access-token-expiration: ${JWT_EXPIRATION:5d}
   ai-server:
     url: ${AI_SERVER_URL:http://172.17.0.1:8000}
 

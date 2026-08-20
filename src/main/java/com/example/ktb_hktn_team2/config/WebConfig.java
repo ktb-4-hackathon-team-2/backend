@@ -19,6 +19,8 @@ public class WebConfig implements WebMvcConfigurer {
      * 토큰 없이 접근할 수 있는 경로. 나머지 /api/** 는 전부 Bearer 토큰이 필요하다.
      */
     private static final String[] PUBLIC_PATHS = {
+            "/health",
+            "/api/health",
             "/api/product-key/**",
             "/api/signup",
             "/api/login"

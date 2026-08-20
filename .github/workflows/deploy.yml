@@ -100,9 +100,7 @@ jobs:
               -e DB_PORT="${{ secrets.DB_PORT || '3306' }}" \
               -e DB_NAME="${{ secrets.DB_NAME || 'ktb_hktn_team2' }}" \
               -e DB_USER="${{ secrets.DB_USER || 'root' }}" \
-              -e DB_USERNAME="${{ secrets.DB_USER || 'root' }}" \
               -e DB_PASSWORD="${{ secrets.DB_PASSWORD || 'root' }}" \
-              -e DB_URL="${{ secrets.DB_URL }}" \
               -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
               -e AI_SERVER_URL="${{ secrets.AI_SERVER_URL || 'http://localhost:8000' }}" \
               $ECR_REGISTRY/$ECR_REPOSITORY:latest
@@ -121,7 +119,8 @@ jobs:
             done
 
             if [ "$SUCCESS" = false ]; then
-              echo "🚨 [ROLLBACK] 헬스체크 실패! 이전 정상 컨테이너로 자동 롤백을 수행합니다..."
+              echo "🚨 [ROLLBACK] 헬스체크 실패! 로그를 출력하고 이전 정상 컨테이너로 자동 롤백을 수행합니다..."
+              docker logs --tail 50 posture-backend || true
               docker stop posture-backend || true
               docker rm -f posture-backend || true
 

@@ -25,7 +25,7 @@ app:
     secret: ${JWT_SECRET:ktb-hktn-team2-local-dev-secret-key-please-change-me}
     access-token-expiration: ${JWT_EXPIRATION:1h}
   ai-server:
-    url: ${AI_SERVER_URL:http://localhost:8000}
+    url: ${AI_SERVER_URL:http://172.17.0.1:8000}
 
 logging:
   level:

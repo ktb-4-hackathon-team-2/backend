@@ -102,7 +102,7 @@ jobs:
               -e DB_USER="${{ secrets.DB_USER || 'root' }}" \
               -e DB_PASSWORD="${{ secrets.DB_PASSWORD || 'root' }}" \
               -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-              -e AI_SERVER_URL="${{ secrets.AI_SERVER_URL || 'http://localhost:8000' }}" \
+              -e AI_SERVER_URL="${{ secrets.AI_SERVER_URL || 'http://172.17.0.1:8000' }}" \
               $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
             echo "🏥 [5/5] 헬스체크 검증 시작 (최대 60초 대기)..."

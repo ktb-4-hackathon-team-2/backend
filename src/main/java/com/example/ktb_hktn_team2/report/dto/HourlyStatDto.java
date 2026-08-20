@@ -4,8 +4,12 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.util.List;
 
 @Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,6 +20,7 @@ public class HourlyStatDto {
     private Integer rate; // 0 ~ 100 (프론트 차트 호환 정수 %)
     private Double monitoredMin; // 모니터링 시간(분)
     private Integer alerts; // 경고 횟수
+    private List<IssueStatDto> issueStats; // 해당 시간대 세부 원인 분석
 
     public HourlyStatDto(Integer hour, Double goodRatio, Double monitoredMin, Long alerts) {
         this.hour = hour;
@@ -24,5 +29,6 @@ public class HourlyStatDto {
         this.rate = this.goodRatio != null ? (int) Math.round(this.goodRatio * 100) : 0;
         this.monitoredMin = monitoredMin != null ? Math.round(monitoredMin * 10.0) / 10.0 : 0.0;
         this.alerts = alerts != null ? alerts.intValue() : 0;
+        this.issueStats = List.of();
     }
 }

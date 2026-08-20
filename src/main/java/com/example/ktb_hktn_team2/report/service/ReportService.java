@@ -128,7 +128,8 @@ public class ReportService {
         int rate = (int) Math.round(avgGoodRatio * 100);
         int avgHoldMin = (int) Math.round(avgGoodRatio * 60);
 
-        List<HourlyStatDto> hourlyStats = minuteLogRepository.findHourlyStatsBetween(member, startOfDay, endOfDay);
+        List<HourlyStatDto> hourlyStats = getEnrichedHourlyStats(member, targetDate);
+        List<HourlyStatDto> yesterdayHourlyStats = getEnrichedHourlyStats(member, targetDate.minusDays(1));
         List<IssueStatDto> issueStats = calculateIssueStats(member, startOfDay, endOfDay);
 
         // 3) AI 서버 분석 호출
@@ -179,6 +180,7 @@ public class ReportService {
                 .llmAdvice(aiResult.advice())
                 .hasData(true)
                 .hourlyStats(hourlyStats)
+                .yesterdayHourlyStats(yesterdayHourlyStats)
                 .issueStats(issueStats)
                 .build();
     }
@@ -211,19 +213,9 @@ public class ReportService {
         int rate = (int) Math.round(avgGoodRatio * 100);
         int avgHoldMin = (int) Math.round(avgGoodRatio * 60);
 
-        List<HourlyStatDto> hourlyStats = minuteLogRepository.findHourlyStatsBetween(member, startOfDay, endOfDay);
+        List<HourlyStatDto> hourlyStats = getEnrichedHourlyStats(member, targetDate);
+        List<HourlyStatDto> yesterdayHourlyStats = getEnrichedHourlyStats(member, targetDate.minusDays(1));
         List<IssueStatDto> issueStats = calculateIssueStats(member, startOfDay, endOfDay);
-
-        System.out.println("🔥 [Spring Boot] DB 집계 결과 -> Member ID: " + member.getId()
-                + ", TargetDate: " + targetDate
-                + ", Start: " + startOfDay + ", End: " + endOfDay
-                + ", TotalSec: " + totalMonitoredSec
-                + ", HourlyStats Count: " + hourlyStats.size());
-        if (!hourlyStats.isEmpty()) {
-            for (HourlyStatDto h : hourlyStats) {
-                System.out.println("   * [Hour " + h.getHour() + "] Rate: " + h.getRate() + "%, Min: " + h.getMonitoredMin() + ", Alerts: " + h.getAlerts());
-            }
-        }
 
         // AI 서버 분석 호출
         AiClient.AiAnalyzeResult aiResult = aiClient.analyzeDaily(
@@ -273,6 +265,7 @@ public class ReportService {
                 .llmAdvice(aiResult.advice())
                 .hasData(totalMonitoredSec > 0)
                 .hourlyStats(hourlyStats)
+                .yesterdayHourlyStats(yesterdayHourlyStats)
                 .issueStats(issueStats)
                 .build();
     }
@@ -285,7 +278,8 @@ public class ReportService {
         LocalDateTime startOfDay = targetDate.atStartOfDay();
         LocalDateTime endOfDay = targetDate.atTime(LocalTime.MAX);
 
-        List<HourlyStatDto> hourlyStats = minuteLogRepository.findHourlyStatsBetween(member, startOfDay, endOfDay);
+        List<HourlyStatDto> hourlyStats = getEnrichedHourlyStats(member, targetDate);
+        List<HourlyStatDto> yesterdayHourlyStats = getEnrichedHourlyStats(member, targetDate.minusDays(1));
         List<IssueStatDto> issueStats = calculateIssueStats(member, startOfDay, endOfDay);
 
         Optional<DailyReport> dailyReportOpt = dailyReportRepository.findByMemberAndReportDate(member, targetDate);
@@ -308,6 +302,7 @@ public class ReportService {
                     .llmAdvice(fromJsonList(r.getLlmAdvice()))
                     .hasData(hasData)
                     .hourlyStats(hourlyStats)
+                    .yesterdayHourlyStats(yesterdayHourlyStats)
                     .issueStats(issueStats)
                     .build();
         }
@@ -341,8 +336,26 @@ public class ReportService {
                 .llmAdvice(List.of())
                 .hasData(hasData)
                 .hourlyStats(hourlyStats)
+                .yesterdayHourlyStats(yesterdayHourlyStats)
                 .issueStats(issueStats)
                 .build();
+    }
+
+    private List<HourlyStatDto> getEnrichedHourlyStats(Member member, LocalDate targetDate) {
+        LocalDateTime startOfDay = targetDate.atStartOfDay();
+        LocalDateTime endOfDay = targetDate.atTime(LocalTime.MAX);
+        List<HourlyStatDto> hourlyStats = minuteLogRepository.findHourlyStatsBetween(member, startOfDay, endOfDay);
+        if (hourlyStats != null && !hourlyStats.isEmpty()) {
+            for (HourlyStatDto h : hourlyStats) {
+                if (h.getHour() != null) {
+                    LocalDateTime hStart = targetDate.atTime(h.getHour(), 0, 0);
+                    LocalDateTime hEnd = targetDate.atTime(h.getHour(), 59, 59);
+                    h.setIssueStats(calculateIssueStats(member, hStart, hEnd));
+                }
+            }
+        }
+        return hourlyStats != null ? hourlyStats : List.of();
+    }
     }
 
     /**

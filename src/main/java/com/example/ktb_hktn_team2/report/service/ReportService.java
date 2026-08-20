@@ -142,13 +142,14 @@ public class ReportService {
         List<HourlyStatDto> yesterdayHourlyStats = getEnrichedHourlyStats(member, targetDate.minusDays(1));
         List<IssueStatDto> issueStats = calculateIssueStats(member, startOfDay, endOfDay);
 
-        // 3) AI 서버 분석 호출
+        // 3) AI 서버 분석 호출 — 종료 시 자동 호출이므로 쿨다운을 적용한다(force=false)
         AiClient.AiAnalyzeResult aiResult = aiClient.analyzeDaily(
                 String.valueOf(member.getId()),
                 targetDate.toString(),
                 hourlyStats,
                 request.getStretchSuggested(),
-                request.getStretchDone()
+                request.getStretchDone(),
+                false
         );
 
         // 4) DailyReport 테이블에 저장(UPSERT)
@@ -227,13 +228,14 @@ public class ReportService {
         List<HourlyStatDto> yesterdayHourlyStats = getEnrichedHourlyStats(member, targetDate.minusDays(1));
         List<IssueStatDto> issueStats = calculateIssueStats(member, startOfDay, endOfDay);
 
-        // AI 서버 분석 호출
+        // AI 서버 분석 호출 — 사용자가 '재생성'을 직접 누른 경로이므로 쿨다운을 건너뛴다(force=true)
         AiClient.AiAnalyzeResult aiResult = aiClient.analyzeDaily(
                 String.valueOf(member.getId()),
                 targetDate.toString(),
                 hourlyStats,
                 0,
-                0
+                0,
+                true
         );
 
         // DailyReport 테이블 저장(UPSERT)

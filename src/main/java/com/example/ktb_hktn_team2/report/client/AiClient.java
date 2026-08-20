@@ -33,13 +33,18 @@ public class AiClient {
         this.aiServerUrl = aiServerUrl;
     }
 
-    public AiAnalyzeResult analyzeDaily(String userId, String date, List<HourlyStatDto> hourly, int stretchSuggested, int stretchDone) {
+    /**
+     * force=true면 AI 서버의 쿨다운(같은 유저·날짜 재분석 방지)을 건너뛰고 새로 분석한다.
+     * 사용자가 리포트에서 '재생성'을 직접 누른 경우에만 true — 자동 호출은 쿨다운으로 과다 청구를 막는다.
+     */
+    public AiAnalyzeResult analyzeDaily(String userId, String date, List<HourlyStatDto> hourly, int stretchSuggested, int stretchDone, boolean force) {
         try {
             Map<String, Object> body = new HashMap<>();
             body.put("date", date != null && !date.isBlank() ? date : java.time.LocalDate.now().toString());
             body.put("user_id", userId != null ? userId : "default_user");
             body.put("stretch_suggested", Math.max(0, stretchSuggested));
             body.put("stretch_done", Math.max(0, stretchDone));
+            body.put("force", force);
 
             List<Map<String, Object>> hourlyList = new ArrayList<>();
             if (hourly != null) {

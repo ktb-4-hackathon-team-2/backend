@@ -10,6 +10,7 @@ import com.example.ktb_hktn_team2.member.Member;
 import com.example.ktb_hktn_team2.member.MemberRepository;
 import com.example.ktb_hktn_team2.member.PasswordEncoder;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +29,13 @@ public class AuthService {
         }
 
         Member member = Member.of(request.email(), passwordEncoder.encode(request.password()));
-        return MemberResponse.from(memberRepository.save(member));
+        try {
+            // 위 존재 검사를 통과한 두 요청이 동시에 들어오면 여기서 unique 제약에 걸린다.
+            // flush 를 해야 커밋 시점이 아니라 이 자리에서 예외가 잡힌다.
+            return MemberResponse.from(memberRepository.saveAndFlush(member));
+        } catch (DataIntegrityViolationException e) {
+            throw new ApiException(ErrorCode.DUPLICATE_EMAIL);
+        }
     }
 
     @Transactional(readOnly = true)

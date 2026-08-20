@@ -59,7 +59,8 @@ sequenceDiagram
 | `NOT_FOUND` | 404 | 존재하지 않는 경로 |
 | `METHOD_NOT_ALLOWED` | 405 | 경로는 맞지만 HTTP 메서드가 다름 |
 | `INVALID_PRODUCT_KEY` | 403 | 제품 키 불일치 (현재 verify API 는 예외 대신 `valid:false` 로 응답) |
-| `DUPLICATE_EMAIL` | 409 | 이미 가입된 이메일 |
+| `DUPLICATE_EMAIL` | 409 | 이미 가입된 이메일 (회원가입에서만 발생) |
+| `CONFLICT` | 409 | 예상하지 못한 DB 제약 충돌 — 잠시 후 재시도 |
 | `LOGIN_FAILED` | 401 | 이메일 또는 비밀번호 불일치 |
 | `UNAUTHORIZED` | 401 | `Authorization` 헤더가 없거나 `Bearer ` 형식이 아님 |
 | `INVALID_TOKEN` | 401 | 서명이 맞지 않거나 형식이 깨진 토큰 |
@@ -325,6 +326,7 @@ curl http://localhost:8080/api/me \
 ### `PUT /api/settings` — 저장(업서트)
 
 없으면 생성, 있으면 갱신한다. **4개 필드를 모두 보내야 한다** (부분 업데이트 미지원).
+저장 버튼을 연타해서 요청이 동시에 여러 번 들어와도 모두 `200` 이다.
 
 **Request**
 

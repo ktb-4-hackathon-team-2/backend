@@ -66,13 +66,16 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 동시에 같은 이메일로 가입 요청이 들어와 unique 제약에 걸린 경우.
+     * DB 제약 위반. 어떤 제약인지는 여기서 알 수 없으므로 일반적인 충돌로 응답한다.
+     * <p>
+     * 원인을 특정할 수 있는 곳(예: 회원가입의 이메일 중복)에서는 각 서비스가 직접 잡아
+     * 구체적인 {@link ErrorCode} 로 바꿔 던진다. 여기까지 온 건 예상하지 못한 충돌이므로 스택을 남긴다.
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException e) {
-        log.warn("데이터 무결성 제약 위반", e);
-        return ResponseEntity.status(ErrorCode.DUPLICATE_EMAIL.getStatus())
-                .body(ErrorResponse.of(ErrorCode.DUPLICATE_EMAIL));
+        log.error("데이터 무결성 제약 위반", e);
+        return ResponseEntity.status(ErrorCode.CONFLICT.getStatus())
+                .body(ErrorResponse.of(ErrorCode.CONFLICT));
     }
 
     @ExceptionHandler(Exception.class)

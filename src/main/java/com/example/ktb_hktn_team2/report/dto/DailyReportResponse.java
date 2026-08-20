@@ -27,5 +27,6 @@ public class DailyReportResponse {
     private List<String> llmAdvice;
     private Boolean hasData; // 실제 모니터링 데이터 유무
     private List<HourlyStatDto> hourlyStats;
+    private List<HourlyStatDto> yesterdayHourlyStats; // 전날(어제) 동일 시간대별 비교 데이터
     private List<IssueStatDto> issueStats; // 발생한 경고 원인 이슈별 통계 랭킹
 }

@@ -82,8 +82,13 @@ jobs:
             echo "📦 [2/5] 최신 백엔드 이미지 Pull..."
             docker pull $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-            echo "💾 [3/5] 현재 실행 중인 컨테이너 백업 보존..."
+            echo "💾 [3/5] 현재 실행 중인 컨테이너 및 롤백용 이미지 보존..."
             if [ "$(docker ps -q -f name=posture-backend)" ]; then
+              CURRENT_IMAGE_ID=$(docker inspect --format='{{.Image}}' posture-backend || true)
+              if [ -n "$CURRENT_IMAGE_ID" ]; then
+                docker tag $CURRENT_IMAGE_ID bandeut-backend:rollback || true
+                echo "🏷️ 직전 정상 이미지를 bandeut-backend:rollback 태그로 보존 완료"
+              fi
               docker stop posture-backend || true
               docker rename posture-backend posture-backend-backup || true
             elif [ "$(docker ps -a -q -f name=posture-backend)" ]; then
@@ -134,6 +139,9 @@ jobs:
               exit 1
             fi
 
-            echo "🎉 배포 완료! 백업 컨테이너 정리..."
+            echo "🎉 배포 완료! 백업 컨테이너 정리 및 미사용 오래된 도커 이미지 일괄 삭제..."
             docker rm -f posture-backend-backup 2>/dev/null || true
+            # 롤백 태그(bandeut-backend:rollback)와 현재 실행 중인 이미지를 제외한 모든 댕글링/오래된 이미지 청소
             docker image prune -f
+            docker builder prune -f || true
+            echo "🧹 도커 미사용 이미지 및 빌드 캐시 청소 완료!"

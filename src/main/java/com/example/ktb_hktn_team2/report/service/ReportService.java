@@ -36,18 +36,28 @@ public class ReportService {
     @Transactional
     public void saveMonitorStats(Member member, MonitorStatsRequest request) {
         int ticks = request.getTicks() != null ? request.getTicks() : 0;
-        int pausedSec = request.getPausedSec() != null ? request.getPausedSec() : 0;
-        int monitoredSec = Math.max(0, (ticks * 2) - pausedSec);
-        if (monitoredSec == 0 && ticks > 0) monitoredSec = ticks * 2;
-        if (monitoredSec == 0) monitoredSec = 60; // 기본값 60초
+        // 측정 샘플이 없는 창(전면 일시정지 등)은 저장하지 않는다 — 기본값(60초·100%)으로
+        // 채우면 쉬는 시간이 '바른 자세'로 집계돼 유지율·모니터링 시간이 부풀었다.
+        if (ticks <= 0 || request.getGoodRatio() == null) return;
 
-        double goodRatio = request.getGoodRatio() != null ? request.getGoodRatio() : 1.0;
+        // ticks(2초 판정 샘플 수)에는 일시정지 시간이 이미 빠져 있으므로
+        // pausedSec을 다시 빼면 이중 차감이 된다.
+        int monitoredSec = ticks * 2;
+
+        double goodRatio = request.getGoodRatio();
         int goodSec = (int) Math.round(monitoredSec * goodRatio);
         int alerts = request.getAlerts() != null ? request.getAlerts() : 0;
 
+        // 발생 횟수를 보존해 "code:count" 형태로 저장 — 원인 분석이 '등장한 분(minute) 수'가
+        // 아니라 실제 발생 횟수를 세도록 (calculateIssueStats가 구형 "code" 형태도 함께 파싱)
         String issueCodes = "";
         if (request.getIssueCounts() != null && !request.getIssueCounts().isEmpty()) {
-            issueCodes = String.join(",", request.getIssueCounts().keySet());
+            StringBuilder sb = new StringBuilder();
+            for (Map.Entry<String, Integer> en : request.getIssueCounts().entrySet()) {
+                if (sb.length() > 0) sb.append(',');
+                sb.append(en.getKey()).append(':').append(en.getValue() != null ? en.getValue() : 1);
+            }
+            issueCodes = sb.toString();
         }
 
         LocalDateTime loggedAt = LocalDateTime.now();
@@ -554,10 +564,21 @@ public class ReportService {
             String[] split = raw.split(",");
             for (String code : split) {
                 String trimmed = code.trim();
-                if (!trimmed.isEmpty()) {
-                    counts.put(trimmed, counts.getOrDefault(trimmed, 0) + 1);
-                    totalOccurrences++;
+                if (trimmed.isEmpty()) continue;
+                // 신형 "code:count"와 구형 "code"(횟수 1로 간주)를 모두 지원
+                int count = 1;
+                int sep = trimmed.indexOf(':');
+                if (sep > 0) {
+                    try {
+                        count = Math.max(1, Integer.parseInt(trimmed.substring(sep + 1).trim()));
+                    } catch (NumberFormatException ignored) {
+                        count = 1;
+                    }
+                    trimmed = trimmed.substring(0, sep).trim();
+                    if (trimmed.isEmpty()) continue;
                 }
+                counts.merge(trimmed, count, Integer::sum);
+                totalOccurrences += count;
             }
         }
 

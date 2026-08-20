@@ -15,6 +15,7 @@ public enum ErrorCode {
     INVALID_PRODUCT_KEY(HttpStatus.FORBIDDEN, "제품 키가 올바르지 않습니다."),
 
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "이미 가입된 이메일입니다."),
+    CONFLICT(HttpStatus.CONFLICT, "요청이 서로 충돌했습니다. 잠시 후 다시 시도해주세요."),
     LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다."),
 
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),

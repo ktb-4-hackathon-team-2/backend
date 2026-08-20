@@ -348,15 +348,15 @@ public class ReportService {
         if (hourlyStats != null && !hourlyStats.isEmpty()) {
             for (HourlyStatDto h : hourlyStats) {
                 if (h.getHour() != null) {
-                    LocalDateTime hStart = targetDate.atTime(h.getHour(), 0, 0);
-                    LocalDateTime hEnd = targetDate.atTime(h.getHour(), 59, 59);
+                    LocalDateTime hStart = targetDate.atTime(h.getHour(), 0, 0, 0);
+                    LocalDateTime hEnd = targetDate.atTime(h.getHour(), 59, 59, 999999999);
                     h.setIssueStats(calculateIssueStats(member, hStart, hEnd));
                 }
             }
         }
         return hourlyStats != null ? hourlyStats : List.of();
     }
-    }
+}
 
     /**
      * 4. 프론트엔드 Report.jsx 대시보드 전체 종합 조회 (최근 14일, 주간 비교, 시간대별, 스탯 카드)

@@ -83,17 +83,19 @@ jobs:
               docker rm -f posture-backend || true
             fi
 
-            echo "▶️ [4/5] 새 백엔드 컨테이너 기동..."
+            echo "▶️ [4/5] 외부 DB EC2 연결 환경변수 적용 및 새 백엔드 컨테이너 기동..."
             docker run -d \
               --name posture-backend \
               --restart always \
               -p 8080:8080 \
               -e SPRING_PROFILES_ACTIVE=prod \
-              -e DB_HOST="${{ secrets.DB_HOST || 'localhost' }}" \
+              -e DB_HOST="${{ secrets.DB_HOST }}" \
               -e DB_PORT="${{ secrets.DB_PORT || '3306' }}" \
               -e DB_NAME="${{ secrets.DB_NAME || 'ktb_hktn_team2' }}" \
               -e DB_USER="${{ secrets.DB_USER || 'root' }}" \
+              -e DB_USERNAME="${{ secrets.DB_USER || 'root' }}" \
               -e DB_PASSWORD="${{ secrets.DB_PASSWORD || 'root' }}" \
+              -e DB_URL="${{ secrets.DB_URL }}" \
               -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
               -e AI_SERVER_URL="${{ secrets.AI_SERVER_URL || 'http://localhost:8000' }}" \
               $ECR_REGISTRY/$ECR_REPOSITORY:latest
